@@ -8,6 +8,8 @@
 #include <functional>
 #include <vector>
 #include <string>
+#include <map>
 
 #include "CLogger.h"
+#include "SQeueFamilyIndices.h"
 #include "CEngine.h"

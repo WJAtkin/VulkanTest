@@ -21,6 +21,7 @@ void CEngine::InitVulkan()
 {
 	CreateInstance();
 	SetupDebugCallback();
+	PickPhysicalDevice();
 }
 
 void CEngine::MainLoop()
@@ -149,6 +150,97 @@ std::vector<const char*> CEngine::GetRequiredExtensions()
 	}
 
 	return extensions;
+}
+
+void CEngine::PickPhysicalDevice()
+{
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
+	uint32_t deviceCount = 0;
+	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+	if (deviceCount == 0)
+	{
+		throw std::runtime_error("Failed to find GPUs with vulkan support!");
+	}
+
+	std::vector<VkPhysicalDevice> devices(deviceCount);
+	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+	for (const auto& device : devices)
+	{
+		if (IsDeviceSuitable(device))
+		{
+			physicalDevice = device;
+			break;
+		}
+	}
+
+	if (physicalDevice == VK_NULL_HANDLE)
+	{
+		throw std::runtime_error("Failed to find GPUs with vulkan support!");
+	}
+
+	// Use an ordered map to rate the sutiblity of the GPUs
+	std::multimap<int, VkPhysicalDevice> candidates;
+
+	for (const auto& device : devices)
+	{
+		int score = RateDeviceSuitability(device);
+		candidates.insert(std::make_pair(score, device));
+	}
+
+	// Check is the best candidate is sutible at all
+	if (candidates.rbegin()->first > 0)
+	{
+		physicalDevice = candidates.rbegin()->second;
+	}
+	else
+	{
+		throw std::runtime_error("Failed to find GPUs with vulkan support!");
+	}
+
+}
+
+bool CEngine::IsDeviceSuitable(VkPhysicalDevice device)
+{
+	SQeueFamilyIndices indices = FindQueueFamilies(device);
+
+	return indices.IsComplete();
+}
+
+int CEngine::RateDeviceSuitability(VkPhysicalDevice device)
+{
+	return 1;
+}
+
+SQeueFamilyIndices CEngine::FindQueueFamilies(VkPhysicalDevice device)
+{
+	SQeueFamilyIndices indices;
+
+	uint32_t queueFamilyCount = 0;
+	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+	int i = 0;
+	for (const auto& queueFamily : queueFamilies)
+	{
+		if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+		{
+			indices.graphicsFamily = i;
+		}
+
+		if (indices.IsComplete())
+		{
+			break;
+		}
+
+		i++;
+	}
+
+	return indices;
 }
 
 // Debugging callback

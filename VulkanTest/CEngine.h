@@ -16,6 +16,10 @@ private:
 	bool CheckValidationLayerSupport();
 	void SetupDebugCallback();
 	std::vector<const char*> GetRequiredExtensions();
+	void PickPhysicalDevice();
+	bool IsDeviceSuitable(VkPhysicalDevice device);
+	int RateDeviceSuitability(VkPhysicalDevice device);
+	SQeueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
 
 	// Debugging callback
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
