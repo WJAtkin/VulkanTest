@@ -22,6 +22,7 @@ void CEngine::InitVulkan()
 	CreateInstance();
 	SetupDebugCallback();
 	PickPhysicalDevice();
+	CreateLogicalDevice();
 }
 
 void CEngine::MainLoop()
@@ -35,6 +36,7 @@ void CEngine::MainLoop()
 void CEngine::Cleanup()
 {
 	DestroyDebugReportCallbackEXT(callback, nullptr);
+	vkDestroyDevice(device, nullptr);
 	vkDestroyInstance(instance, nullptr);
 
 	glfwDestroyWindow(window);
@@ -83,7 +85,7 @@ void CEngine::CreateInstance()
 		throw std::runtime_error("Failed to create instance!");
 	}
 
-	PrintExtensions();
+	//PrintExtensions();
 }
 
 void CEngine::PrintExtensions()
@@ -154,8 +156,6 @@ std::vector<const char*> CEngine::GetRequiredExtensions()
 
 void CEngine::PickPhysicalDevice()
 {
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -272,10 +272,8 @@ void CEngine::SetupDebugCallback()
 	}
 }
 
-VkResult CEngine::CreateDebugReportCallbackEXT(
-	const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
-	const VkAllocationCallbacks* pAllocator,
-	VkDebugReportCallbackEXT* pCallback)
+VkResult CEngine::CreateDebugReportCallbackEXT(const VkDebugReportCallbackCreateInfoEXT* pCreateInfo,
+	const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback)
 {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	if (func != nullptr)
@@ -284,8 +282,7 @@ VkResult CEngine::CreateDebugReportCallbackEXT(
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
 }
 
-void CEngine::DestroyDebugReportCallbackEXT(
-	VkDebugReportCallbackEXT pCallback,
+void CEngine::DestroyDebugReportCallbackEXT(VkDebugReportCallbackEXT pCallback,
 	const VkAllocationCallbacks* pAllocator)
 {
 	auto func = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
@@ -293,4 +290,45 @@ void CEngine::DestroyDebugReportCallbackEXT(
 	{
 		func(instance, callback, pAllocator);
 	}
+}
+
+void CEngine::CreateLogicalDevice()
+{
+	// Creates and fills the queue family
+	SQeueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+	VkDeviceQueueCreateInfo queueCreateInfo = {};
+	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+	queueCreateInfo.queueFamilyIndex = indices.graphicsFamily;
+	queueCreateInfo.queueCount = 1;
+	float queuePriority = 1.0f;
+	queueCreateInfo.pQueuePriorities = &queuePriority;
+
+	// Left blank as we do not need any features for creating the logical device
+	VkPhysicalDeviceFeatures deviceFeatures = {};
+
+	// Creates the create info and fills it
+	VkDeviceCreateInfo createInfo = {};
+	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	createInfo.pQueueCreateInfos = &queueCreateInfo;
+	createInfo.queueCreateInfoCount = 1;
+	createInfo.pEnabledFeatures = &deviceFeatures;
+	createInfo.enabledExtensionCount = 0;
+	if (enableValidationLayers)
+	{
+		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+		createInfo.ppEnabledLayerNames = validationLayers.data();
+	}
+	else
+	{
+		createInfo.enabledLayerCount = 0;
+	}
+
+	// Creates the device and checks it worked
+	if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create logical device!");
+	}
+	
+	// Gets the queue handle from the GPU
+	vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
 }

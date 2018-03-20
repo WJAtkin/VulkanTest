@@ -20,6 +20,7 @@ private:
 	bool IsDeviceSuitable(VkPhysicalDevice device);
 	int RateDeviceSuitability(VkPhysicalDevice device);
 	SQeueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
+	void CreateLogicalDevice();
 
 	// Debugging callback
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
@@ -55,6 +56,9 @@ private:
 	};
 
 	VkDebugReportCallbackEXT callback;
+	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE; // Handle for physical device
+	VkDevice device; // Handle for logical device
+	VkQueue graphicsQueue;
 
 	GLFWwindow* window;
 	VkInstance instance;
