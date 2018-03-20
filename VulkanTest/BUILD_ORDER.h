@@ -9,7 +9,9 @@
 #include <vector>
 #include <string>
 #include <map>
+#include <set>
 
 #include "CLogger.h"
-#include "SQeueFamilyIndices.h"
+#include "SQueueFamilyIndices.h"
+#include "SSwapChainSupportDetails.h"
 #include "CEngine.h"

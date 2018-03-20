@@ -24,7 +24,10 @@
     <ClCompile Include="CEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SQeueFamilyIndices.cpp">
+    <ClCompile Include="SQueueFamilyIndices.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SSwapChainSupportDetails.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -38,7 +41,10 @@
     <ClInclude Include="CEngine.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SQeueFamilyIndices.h">
+    <ClInclude Include="SQueueFamilyIndices.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SSwapChainSupportDetails.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

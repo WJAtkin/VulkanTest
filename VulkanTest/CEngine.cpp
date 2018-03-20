@@ -20,7 +20,9 @@ void CEngine::InitWindow()
 void CEngine::InitVulkan()
 {
 	CreateInstance();
+	PrintExtensions();
 	SetupDebugCallback();
+	CreateSurface();
 	PickPhysicalDevice();
 	CreateLogicalDevice();
 }
@@ -36,6 +38,7 @@ void CEngine::MainLoop()
 void CEngine::Cleanup()
 {
 	DestroyDebugReportCallbackEXT(callback, nullptr);
+	vkDestroySurfaceKHR(instance, surface, nullptr);
 	vkDestroyDevice(device, nullptr);
 	vkDestroyInstance(instance, nullptr);
 
@@ -84,8 +87,6 @@ void CEngine::CreateInstance()
 	{
 		throw std::runtime_error("Failed to create instance!");
 	}
-
-	//PrintExtensions();
 }
 
 void CEngine::PrintExtensions()
@@ -204,9 +205,18 @@ void CEngine::PickPhysicalDevice()
 
 bool CEngine::IsDeviceSuitable(VkPhysicalDevice device)
 {
-	SQeueFamilyIndices indices = FindQueueFamilies(device);
+	SQueueFamilyIndices indices = FindQueueFamilies(device);
 
-	return indices.IsComplete();
+	bool extensionsSupported = CheckDeviceExtensionSupport(device);
+
+	bool swapChainAdequate = false;
+	if (extensionsSupported)
+	{
+		SSwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(device);
+		swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.presentModes.empty();
+	}
+
+	return indices.IsComplete() && extensionsSupported && swapChainAdequate;
 }
 
 int CEngine::RateDeviceSuitability(VkPhysicalDevice device)
@@ -214,15 +224,17 @@ int CEngine::RateDeviceSuitability(VkPhysicalDevice device)
 	return 1;
 }
 
-SQeueFamilyIndices CEngine::FindQueueFamilies(VkPhysicalDevice device)
+SQueueFamilyIndices CEngine::FindQueueFamilies(VkPhysicalDevice device)
 {
-	SQeueFamilyIndices indices;
+	SQueueFamilyIndices indices;
 
 	uint32_t queueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
 	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+	VkBool32 presentSupport = false;
 
 	int i = 0;
 	for (const auto& queueFamily : queueFamilies)
@@ -232,6 +244,12 @@ SQeueFamilyIndices CEngine::FindQueueFamilies(VkPhysicalDevice device)
 			indices.graphicsFamily = i;
 		}
 
+		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+		if (queueFamily.queueCount > 0 && presentSupport)
+		{
+			indices.presentFamily = i;
+		}
+
 		if (indices.IsComplete())
 		{
 			break;
@@ -239,7 +257,7 @@ SQeueFamilyIndices CEngine::FindQueueFamilies(VkPhysicalDevice device)
 
 		i++;
 	}
-
+	
 	return indices;
 }
 
@@ -295,13 +313,21 @@ void CEngine::DestroyDebugReportCallbackEXT(VkDebugReportCallbackEXT pCallback,
 void CEngine::CreateLogicalDevice()
 {
 	// Creates and fills the queue family
-	SQeueFamilyIndices indices = FindQueueFamilies(physicalDevice);
-	VkDeviceQueueCreateInfo queueCreateInfo = {};
-	queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	queueCreateInfo.queueFamilyIndex = indices.graphicsFamily;
-	queueCreateInfo.queueCount = 1;
+	SQueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+
+	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+	std::set<int> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };
+
 	float queuePriority = 1.0f;
-	queueCreateInfo.pQueuePriorities = &queuePriority;
+	for (int queueFamily : uniqueQueueFamilies)
+	{
+		VkDeviceQueueCreateInfo queueCreateInfo = {};
+		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = queueFamily;
+		queueCreateInfo.queueCount = 1;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+		queueCreateInfos.push_back(queueCreateInfo);
+	}
 
 	// Left blank as we do not need any features for creating the logical device
 	VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -309,10 +335,12 @@ void CEngine::CreateLogicalDevice()
 	// Creates the create info and fills it
 	VkDeviceCreateInfo createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	createInfo.pQueueCreateInfos = &queueCreateInfo;
+	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+	createInfo.pQueueCreateInfos = queueCreateInfos.data();
 	createInfo.queueCreateInfoCount = 1;
 	createInfo.pEnabledFeatures = &deviceFeatures;
-	createInfo.enabledExtensionCount = 0;
+	createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 	if (enableValidationLayers)
 	{
 		createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -331,4 +359,56 @@ void CEngine::CreateLogicalDevice()
 	
 	// Gets the queue handle from the GPU
 	vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
+	vkGetDeviceQueue(device, indices.presentFamily, 0, &presentQueue);
+}
+
+void CEngine::CreateSurface()
+{
+	if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create window surface!");
+	}
+}
+
+bool CEngine::CheckDeviceExtensionSupport(VkPhysicalDevice device)
+{
+	uint32_t extensionCount;
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
+
+	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
+
+	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+	for (const auto& extension : availableExtensions)
+	{
+		requiredExtensions.erase(extension.extensionName);
+	}
+
+	return requiredExtensions.empty();
+}
+
+SSwapChainSupportDetails CEngine::QuerySwapChainSupport(VkPhysicalDevice device)
+{
+	SSwapChainSupportDetails details;
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+	uint32_t formatCount;
+	vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
+	if (formatCount != 0)
+	{
+		details.formats.resize(formatCount);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
+	}
+
+	uint32_t presentModeCount;
+	vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
+
+	if (presentModeCount != 0)
+	{
+		details.presentModes.resize(presentModeCount);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
+	}
+
+	return details;
 }

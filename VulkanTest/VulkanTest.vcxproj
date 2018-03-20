@@ -22,13 +22,15 @@
     <ClCompile Include="CEngine.cpp" />
     <ClCompile Include="CLogger.cpp" />
     <ClCompile Include="Source.cpp" />
-    <ClCompile Include="SQeueFamilyIndices.cpp" />
+    <ClCompile Include="SQueueFamilyIndices.cpp" />
+    <ClCompile Include="SSwapChainSupportDetails.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BUILD_ORDER.h" />
     <ClInclude Include="CEngine.h" />
     <ClInclude Include="CLogger.h" />
-    <ClInclude Include="SQeueFamilyIndices.h" />
+    <ClInclude Include="SQueueFamilyIndices.h" />
+    <ClInclude Include="SSwapChainSupportDetails.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
