@@ -2,11 +2,11 @@
 
 int main()
 {
-	CEngine app;
+	CEngine* myEngine = new CEngine();
 
 	try
 	{
-		app.Run();
+		myEngine->Run();
 	}
 	catch (const std::runtime_error& e)
 	{
@@ -15,6 +15,7 @@ int main()
 		return EXIT_FAILURE;
 	}
 
+	delete myEngine;
 	system("Pause");
 	return EXIT_SUCCESS;
 }
